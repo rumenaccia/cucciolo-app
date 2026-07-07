@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Cucciolo - Il tuo Ragdoll che cresce con te">
+  <meta name="theme-color" content="#FFEAF7">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><text x='50%' y='50%' font-size='120' text-anchor='middle' dominant-baseline='middle'>🐱</text></svg>">
+  <title>Cucciolo - Il tuo Ragdoll</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Quicksand:wght@400;500;600;700&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Quicksand', sans-serif; background: linear-gradient(135deg, #FFE8F5, #E8F5FF); min-height: 100vh; }
+    body.dark { background: linear-gradient(135deg, #2a1f35, #1f2535); color: #e0e0e0; }
+    #root { width: 100%; max-width: 420px; height: 100vh; margin: 0 auto; display: flex; flex-direction: column; }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(74, 58, 107, 0.3); border-radius: 2px; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+  <script>
+    const { useState, useEffect, useCallback, useRef } = React;
+
+    // ===== CONSTANTS =====
+    const MILESTONE_TYPES = {
+      studio: { label: "Studio", unit: "ore", perUnit: 1.5, emoji: "📚" },
+      dormi: { label: "Sonno", unit: "ore", perUnit: 0.8, emoji: "😴" },
+      esame: { label: "Esame passato", unit: "count", perUnit: 50, emoji: "🎓" },
+      denti: { label: "Lavato i denti", unit: "volte", perUnit: 2, emoji: "🪥" },
+      allenamento: { label: "Allenamento", unit: "ore", perUnit: 3, emoji: "💪" },
+    };
+
+    const RECIPES = [
+      { id: "cap", name: "Caprese", needs: ["pomodoro", "mozzarella", "basilico"], emoji: "🥗", vita: 30 },
+      { id: "pesto", name: "Pasta al pesto", needs: ["pasta", "basilico", "aglio", "pinoli"], emoji: "🍝", vita: 50 },
+      { id: "tira", name: "Tiramisù", needs: ["mascarpone", "uovo", "caffè", "biscotti"], emoji: "🍰", vita: 60 },
+      { id: "carb", name: "Carbonara", needs: ["pasta", "guanciale", "uovo", "pecorino"], emoji: "🍝", vita: 55 },
+      { id: "gnocchi", name: "Gnocchi", needs: ["patate", "farina", "burro", "salvia"], emoji: "🍲", vita: 48 },
+      { id: "brusc", name: "Bruschetta", needs: ["pane", "pomodoro", "aglio", "basilico"], emoji: "🥖", vita: 35 },
+      { id: "risotto", name: "Risotto funghi", needs: ["riso", "funghi", "vino", "brodo"], emoji: "🍚", vita: 52 },
+      { id: "pizza", name: "Pizza", needs: ["farina", "pomodoro", "mozzarella", "basilico"], emoji: "🍕", vita: 58 },
+      { id: "amatri", name: "Amatriciana", needs: ["pasta", "pomodoro", "guanciale", "pecorino"], emoji: "🍝", vita: 53 },
+      { id: "osso", name: "Osso buco", needs: ["vitello", "vino", "brodo", "carota"], emoji: "🍖", vita: 65 },
+    ];
+
+    const INGREDIENTS = [
+      { id: "pomodoro", emoji: "🍅" }, { id: "mozzarella", emoji: "🧀" }, { id: "basilico", emoji: "🌿" },
+      { id: "pasta", emoji: "🍝" }, { id: "aglio", emoji: "🧄" }, { id: "mascarpone", emoji: "🥣" },
+      { id: "uovo", emoji: "🥚" }, { id: "caffè", emoji: "☕" }, { id: "biscotti", emoji: "🍪" },
+      { id: "pinoli", emoji: "🌰" }, { id: "guanciale", emoji: "🥓" }, { id: "pecorino", emoji: "🧀" },
+      { id: "patate", emoji: "🥔" }, { id: "farina", emoji: "🌾" }, { id: "burro", emoji: "🧈" },
+      { id: "salvia", emoji: "🌿" }, { id: "pane", emoji: "🥖" }, { id: "riso", emoji: "🍚" },
+      { id: "funghi", emoji: "🍄" }, { id: "vino", emoji: "🍷" }, { id: "brodo", emoji: "🍶" },
+      { id: "vitello", emoji: "🍖" }, { id: "carota", emoji: "🥕" },
+    ];
+
+    const MOTIVATIONAL_QUOTES = [
+      "Oggi è un giorno perfetto per non fumare! 💪",
+      "L'acqua è la miglior medicina. Bevi! 💧",
+      "Mangia bene, il tuo gatto ti ringrazierà 🥗",
+      "Ogni traguardo è un passo verso la felicità ⭐",
+      "Prendersi cura di te = prendersi cura di lui 💚",
+      "Non fumare oggi = +2 anni per il tuo gatto 🎉",
+      "Un drink in meno = salute in più 🌟",
+      "Il tuo gatto crede in te! 🐱",
+      "Riposa bene, recupera le forze 😴",
+      "Muoviti un po'! Il tuo corpo e il tuo gatto ringraziano 🏃",
+    ];
+
+    const DAILY_MISSIONS = [
+      { id: "eat", emoji: "🍽️", label: "Mangia bene" },
+      { id: "water", emoji: "💧", label: "Bevi acqua" },
+      { id: "no_smoke", emoji: "🚭", label: "Non fumare" },
+      { id: "no_drink", emoji: "🚫", label: "No alcol" },
+      { id: "move", emoji: "🏃", label: "Movimento" },
+    ];
+
+    const BADGES = [
+      { id: "week_clean", label: "Settimana Pulita", emoji: "🌟", points: 100 },
+      { id: "month_clean", label: "Mese Perfetto", emoji: "👑", points: 500 },
+      { id: "chef", label: "Chef", emoji: "🍳", points: 50 },
+      { id: "sage", label: "Saggio", emoji: "🧙", points: 1000 },
+    ];
+
+    const MAX_VITA_DAYS = 1825;
+
+    // ===== UTILS =====
+    function stageFor(points) {
+      if (points < 100) return { key: "cucciolo", label: "Cucciolotto", icon: "🍼" };
+      if (points < 250) return { key: "adolescente", label: "Adolescente", icon: "🎒" };
+      if (points < 450) return { key: "piccolo_adulto", label: "Piccolo Adulto", icon: "📚" };
+      if (points < 700) return { key: "adulto", label: "Adulto", icon: "💼" };
+      return { key: "anziano", label: "Anziano", icon: "🧓" };
+    }
+
+    function uid() {
+      return Math.random().toString(36).slice(2, 9);
+    }
+
+    function formatDays(days) {
+      const years = Math.floor(days / 365);
+      const months = Math.floor((days % 365) / 30);
+      if (years > 0) return `${years}a ${months}m`;
+      return `${Math.floor(days)}g`;
+    }
+
+    function playSound(type) {
+      const frequencies = {
+        eat: 440, smoke: 220, drink: 330, win: 659, milestone: 784
+      };
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = frequencies[type] || 440;
+      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.2);
+    }
+
+    function getAffectionLevel(profile) {
+      const vitaPercent = (profile.vitaDays / MAX_VITA_DAYS) * 100;
+      const cleanDays = profile.lastSmoke ? Math.floor((new Date() - new Date(profile.lastSmoke)) / (1000 * 60 * 60 * 24)) : -1;
+      if (vitaPercent > 80 && cleanDays > 7) return { emoji: "😍", text: "Felicissimo!", color: "#45D6B5" };
+      if (vitaPercent > 60 && cleanDays > 3) return { emoji: "😊", text: "Contento", color: "#FFE070" };
+      if (vitaPercent > 40) return { emoji: "😐", text: "Neutro", color: "#D4748E" };
+      return { emoji: "😔", text: "Triste", color: "#FF6FB0" };
+    }
+
+    // ===== RAGDOLL CAT COMPONENT =====
+    function RagdollCat({ stage = "cucciolo", size = 300 }) {
+      const canvasRef = useRef(null);
+
+      useEffect(() => {
+        if (!canvasRef.current) return;
+        const canvas = canvasRef.current;
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        let animationId;
+
+        const animate = (time) => {
+          // Background gradient
+          const bgGrad = ctx.createLinearGradient(0, 0, size, size);
+          bgGrad.addColorStop(0, "#FFD4E5");
+          bgGrad.addColorStop(0.5, "#FFBFD5");
+          bgGrad.addColorStop(1, "#FFAAD0");
+          ctx.fillStyle = bgGrad;
+          ctx.fillRect(0, 0, size, size);
+
+          ctx.save();
+          ctx.translate(size / 2, size / 2);
+
+          const bodyColor = "#EDD0E3";
+          const pointColor = "#D4748E";
+          const darkPoint = "#9A4A6D";
+          const t = time / 1000;
+
+          let scale = 1;
+          if (stage === "cucciolo") scale = 0.55;
+          else if (stage === "adolescente") scale = 0.72;
+          else if (stage === "piccolo_adulto") scale = 0.88;
+          else if (stage === "adulto") scale = 1;
+          else if (stage === "anziano") scale = 1.05;
+
+          // Shadow
+          const shadowGrad = ctx.createRadialGradient(0, size / 2, 0, 0, size / 2, size / 1.6);
+          shadowGrad.addColorStop(0, "rgba(150, 70, 110, 0.35)");
+          shadowGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
+          ctx.fillStyle = shadowGrad;
+          ctx.beginPath();
+          ctx.ellipse(0, size / 2.3, size / 2.2, size / 5.5, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Body
+          ctx.fillStyle = bodyColor;
+          ctx.beginPath();
+          ctx.ellipse(0, size / 10 * scale, size / 2 * scale, size / 2.4 * scale, Math.sin(t) * 0.1, 0, Math.PI * 2);
+          ctx.fill();
+
+          const bodyShade = ctx.createLinearGradient(-size / 2 * scale, 0, size / 2 * scale, 0);
+          bodyShade.addColorStop(0, "rgba(154, 74, 109, 0.22)");
+          bodyShade.addColorStop(1, "rgba(0, 0, 0, 0)");
+          ctx.fillStyle = bodyShade;
+          ctx.beginPath();
+          ctx.ellipse(0, size / 10 * scale, size / 2 * scale, size / 2.4 * scale, Math.sin(t) * 0.1, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Head
+          ctx.fillStyle = bodyColor;
+          ctx.beginPath();
+          ctx.arc(0, -size / 2.9 * scale, size / 2.2 * scale, 0, Math.PI * 2);
+          ctx.fill();
+
+          const headShade = ctx.createRadialGradient(-size / 6.5 * scale, -size / 2.2 * scale, 0, 0, -size / 2.9 * scale, size / 2.2 * scale);
+          headShade.addColorStop(0, "rgba(154, 74, 109, 0.18)");
+          headShade.addColorStop(1, "rgba(0, 0, 0, 0.22)");
+          ctx.fillStyle = headShade;
+          ctx.beginPath();
+          ctx.arc(0, -size / 2.9 * scale, size / 2.2 * scale, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Ears
+          const earY = -size / 2.35 * scale;
+          const earX1 = -size / 4.8 * scale;
+          const earX2 = size / 4.8 * scale;
+
+          ctx.fillStyle = bodyColor;
+          ctx.beginPath();
+          ctx.ellipse(earX1, earY, size / 14 * scale, size / 9 * scale, -0.28, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = pointColor;
+          ctx.beginPath();
+          ctx.ellipse(earX1 - size / 48 * scale, earY + size / 32 * scale, size / 18 * scale, size / 12 * scale, -0.28, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = bodyColor;
+          ctx.beginPath();
+          ctx.ellipse(earX2, earY, size / 14 * scale, size / 9 * scale, 0.28, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = pointColor;
+          ctx.beginPath();
+          ctx.ellipse(earX2 + size / 48 * scale, earY + size / 32 * scale, size / 18 * scale, size / 12 * scale, 0.28, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Eyes
+          const eyeY = -size / 3.5 * scale;
+          const eyeX1 = -size / 6 * scale;
+          const eyeX2 = size / 6 * scale;
+
+          ctx.fillStyle = "#ffffff";
+          ctx.shadowColor = "rgba(0,0,0,0.1)";
+          ctx.shadowBlur = 4;
+          ctx.beginPath();
+          ctx.ellipse(eyeX1, eyeY, size / 15 * scale, size / 12 * scale, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.beginPath();
+          ctx.ellipse(eyeX2, eyeY, size / 15 * scale, size / 12 * scale, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.shadowColor = "transparent";
+
+          ctx.fillStyle = "#4A9FE0";
+          const pupilOffset = Math.cos(t) * size / 42;
+          ctx.beginPath();
+          ctx.arc(eyeX1 + pupilOffset, eyeY, size / 26 * scale, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(eyeX2 + pupilOffset, eyeY, size / 26 * scale, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = "#000000";
+          ctx.beginPath();
+          ctx.arc(eyeX1 + pupilOffset, eyeY, size / 46 * scale, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(eyeX2 + pupilOffset, eyeY, size / 46 * scale, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+          ctx.beginPath();
+          ctx.arc(eyeX1 + size / 38 * scale, eyeY - size / 48 * scale, size / 75 * scale, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(eyeX2 + size / 38 * scale, eyeY - size / 48 * scale, size / 75 * scale, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Nose
+          ctx.fillStyle = "#F4859E";
+          ctx.beginPath();
+          ctx.ellipse(0, -size / 5.2 * scale, size / 32 * scale, size / 36 * scale, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = "#E06284";
+          ctx.beginPath();
+          ctx.ellipse(size / 82 * scale, -size / 5.2 * scale + size / 60 * scale, size / 45 * scale, size / 50 * scale, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Mouth
+          ctx.strokeStyle = pointColor;
+          ctx.lineWidth = 1.8 * scale;
+          ctx.lineCap = "round";
+          ctx.beginPath();
+          ctx.moveTo(0, -size / 5.2 * scale);
+          ctx.lineTo(0, -size / 5.8 * scale);
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.arc(0, -size / 5.5 * scale, size / 22 * scale, 0, Math.PI);
+          ctx.stroke();
+
+          // Whiskers
+          ctx.strokeStyle = darkPoint;
+          ctx.lineWidth = 1.4 * scale;
+          ctx.lineCap = "round";
+          for (let i = -1; i <= 1; i++) {
+            const y = -size / 4.8 * scale + i * size / 24 * scale;
+            ctx.beginPath();
+            ctx.moveTo(-size / 13 * scale, y);
+            ctx.quadraticCurveTo(-size / 14 * scale - size / 28 * scale, y - size / 90 * scale, -size / 6.5 * scale, y);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(size / 13 * scale, y);
+            ctx.quadraticCurveTo(size / 14 * scale + size / 28 * scale, y - size / 90 * scale, size / 6.5 * scale, y);
+            ctx.stroke();
+          }
+
+          // Paws
+          ctx.fillStyle = bodyColor;
+          ctx.beginPath();
+          ctx.ellipse(-size / 4.9 * scale, size / 2 * scale, size / 12.5 * scale, size / 3 * scale, -0.16, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.beginPath();
+          ctx.ellipse(size / 4.9 * scale, size / 2 * scale, size / 12.5 * scale, size / 3 * scale, 0.16, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = "#F4859E";
+          ctx.beginPath();
+          ctx.arc(-size / 4.9 * scale, size / 1.7 * scale, size / 28 * scale, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(size / 4.9 * scale, size / 1.7 * scale, size / 28 * scale, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Tail
+          ctx.strokeStyle = bodyColor;
+          ctx.lineWidth = size / 14 * scale;
+          ctx.lineCap = "round";
+          ctx.lineJoin = "round";
+          ctx.beginPath();
+          ctx.moveTo(size / 3 * scale, size / 5 * scale);
+          ctx.quadraticCurveTo(
+            size / 1.9 * scale + Math.sin(t) * size / 12,
+            -size / 3.2 * scale,
+            size / 2.4 * scale,
+            -size / 2.5 * scale
+          );
+          ctx.stroke();
+
+          ctx.strokeStyle = "rgba(154, 74, 109, 0.18)";
+          ctx.lineWidth = size / 12 * scale;
+          ctx.beginPath();
+          ctx.moveTo(size / 3 * scale + size / 90 * scale, size / 5 * scale);
+          ctx.quadraticCurveTo(
+            size / 1.9 * scale + Math.sin(t) * size / 12 + size / 70 * scale,
+            -size / 3.2 * scale,
+            size / 2.4 * scale + size / 50 * scale,
+            -size / 2.5 * scale
+          );
+          ctx.stroke();
+
+          ctx.restore();
+          animationId = requestAnimationFrame(animate);
+        };
+
+        animate(0);
+        return () => cancelAnimationFrame(animationId);
+      }, [stage, size]);
+
+      return React.createElement("canvas", { ref: canvasRef, style: { borderRadius: 20, boxShadow: "0 12px 32px rgba(74,58,107,.25)", display: "block", margin: "0 auto", maxWidth: "100%" } });
+    }
+
+    // ===== ONBOARDING =====
+    function Onboarding({ onDone }) {
+      const [step, setStep] = useState(0);
+      const [petName, setPetName] = useState("");
+      const [myName, setMyName] = useState("");
+
+      return React.createElement("div", { style: { padding: "40px 22px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100vh", textAlign: "center", background: "linear-gradient(135deg, #FFE8F5, #E8F5FF)" } },
+        step === 0 ? React.createElement(React.Fragment, null,
+          React.createElement("div", { style: { fontSize: 52, marginBottom: 12 } }, "🐾"),
+          React.createElement("h1", { style: { fontSize: 28, marginBottom: 8, color: "#4A3A6B", fontWeight: 700, fontFamily: "'Fredoka', sans-serif" } }, "Benvenuto in Cucciolo!"),
+          React.createElement("p", { style: { fontSize: 12, color: "#8F84B0", marginBottom: 24, lineHeight: 1.6 } }, "Un Ragdoll che vivrà 5 anni con te e crescerà insieme ai tuoi traguardi."),
+          React.createElement("label", { style: { fontSize: 11, color: "#FF6FB0", marginBottom: 4, display: "block", fontWeight: 700 } }, "Il tuo nome"),
+          React.createElement("input", { style: { width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255, 255, 255, 0.4)", background: "rgba(255, 255, 255, 0.5)", fontSize: 13, marginBottom: 12, fontFamily: "'Quicksand', sans-serif" }, value: myName, onChange: (e) => setMyName(e.target.value), placeholder: "Es. Marco" }),
+          React.createElement("label", { style: { fontSize: 11, color: "#FF6FB0", marginBottom: 4, display: "block", fontWeight: 700 } }, "Nome del tuo Ragdoll"),
+          React.createElement("input", { style: { width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255, 255, 255, 0.4)", background: "rgba(255, 255, 255, 0.5)", fontSize: 13, marginBottom: 24, fontFamily: "'Quicksand', sans-serif" }, value: petName, onChange: (e) => setPetName(e.target.value), placeholder: "Es. Fuffi" }),
+          React.createElement("button", { style: { background: "linear-gradient(135deg, #FFC53D, #FFD966)", color: "#4A3A6B", border: "none", borderRadius: 18, padding: "11px 28px", fontWeight: 700, fontSize: 14, cursor: "pointer", width: "100%", boxShadow: "0 8px 32px rgba(255, 197, 61, 0.3)", fontFamily: "'Quicksand', sans-serif" }, onClick: () => setStep(1), disabled: !petName || !myName }, "Avanti →")
+        ) : React.createElement(React.Fragment, null,
+          React.createElement("div", { style: { fontSize: 52, marginBottom: 12 } }, "🐱"),
+          React.createElement("h1", { style: { fontSize: 28, marginBottom: 8, color: "#4A3A6B", fontWeight: 700, fontFamily: "'Fredoka', sans-serif" } }, "Ecco " + petName + "!"),
+          React.createElement(RagdollCat, { stage: "cucciolo", size: 240 }),
+          React.createElement("p", { style: { fontSize: 12, color: "#8F84B0", marginTop: 20, marginBottom: 24, lineHeight: 1.6 } }, "È appena nato e dipende da te. Ogni traguardo che raggiungi lo aiuta a crescere."),
+          React.createElement("button", { style: { background: "linear-gradient(135deg, #FFC53D, #FFD966)", color: "#4A3A6B", border: "none", borderRadius: 18, padding: "11px 28px", fontWeight: 700, fontSize: 14, cursor: "pointer", width: "100%", boxShadow: "0 8px 32px rgba(255, 197, 61, 0.3)", fontFamily: "'Quicksand', sans-serif" }, onClick: () => onDone({ petName, myName, code: uid().toUpperCase().slice(0, 6) }) }, "Inizia l'avventura! 🚀")
+        )
+      );
+    }
+
+    // ===== HOME TAB =====
+    function Home({ profile, stage }) {
+      const vitaPercent = (profile.vitaDays / MAX_VITA_DAYS) * 100;
+      const affection = getAffectionLevel(profile);
+      const getLifeColor = () => vitaPercent > 70 ? "#45D6B5" : vitaPercent > 40 ? "#FFE070" : "#FF6FB0";
+
+      return React.createElement("div", { style: { padding: "4px 4px 20px" } },
+        React.createElement("div", { style: { textAlign: "center", marginBottom: 16 } },
+          React.createElement(RagdollCat, { stage: stage.key, size: 280 }),
+          React.createElement("div", { style: { marginTop: 12 } },
+            React.createElement("div", { style: { fontWeight: 700, fontSize: 14, color: "#4A3A6B" } }, stage.label),
+            React.createElement("div", { style: { fontSize: 11, color: "#8F84B0" } }, "⭐ " + profile.points + " pt"),
+            React.createElement("div", { style: { fontSize: 28, marginTop: 4 } }, affection.emoji),
+            React.createElement("div", { style: { fontSize: 10, color: affection.color, fontWeight: 700 } }, affection.text)
+          )
+        ),
+        React.createElement("div", { style: { background: "rgba(255, 232, 240, 0.6)", backdropFilter: "blur(10px)", borderRadius: 14, padding: 14, marginBottom: 12, border: "1px solid rgba(255, 200, 220, 0.3)" } },
+          React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: 8 } },
+            React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#4A3A6B" } }, "Vita"),
+            React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: "#FF6FB0" } }, formatDays(profile.vitaDays))
+          ),
+          React.createElement("div", { style: { background: "rgba(255, 212, 229, 0.8)", borderRadius: 10, height: 24, overflow: "hidden", position: "relative", border: "1px solid rgba(255, 255, 255, 0.4)" } },
+            React.createElement("div", { style: { background: getLifeColor(), height: "100%", width: vitaPercent + "%", transition: "width 0.3s ease", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#fff", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.3)" } }, vitaPercent > 10 ? Math.round(vitaPercent) + "%" : "")
+          ),
+          React.createElement("div", { style: { fontSize: 10, color: "#8F84B0", marginTop: 6, textAlign: "center" } }, "Max 5 anni")
+        ),
+        React.createElement("div", { style: { background: "rgba(255, 243, 196, 0.6)", backdropFilter: "blur(10px)", borderRadius: 12, padding: 12, marginBottom: 12, border: "1px solid rgba(255, 230, 196, 0.3)" } },
+          React.createElement("div", { style: { fontSize: 11, color: "#8F84B0", marginBottom: 4 } }, "Traguardi"),
+          React.createElement("div", { style: { fontSize: 24, fontWeight: 700, color: "#FFE070" } }, "⭐ " + profile.points)
+        ),
+        React.createElement("div", { style: { background: "rgba(240, 248, 255, 0.6)", backdropFilter: "blur(10px)", borderRadius: 12, padding: 12, border: "1px solid rgba(191, 226, 248, 0.3)" } },
+          React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#4A3A6B", marginBottom: 8 } }, "💭 Motto del giorno"),
+          React.createElement("div", { style: { fontSize: 12, color: "#4A9FE0", fontStyle: "italic", lineHeight: 1.5 } }, '"' + MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)] + '"')
+        )
+      );
+    }
+
+    // ===== TRAGUARDI TAB =====
+    function Traguardi({ profile, setProfile }) {
+      const [activeType, setActiveType] = useState(null);
+      const [inputValue, setInputValue] = useState("");
+
+      const handleAdd = (typeKey) => {
+        if (!inputValue || parseFloat(inputValue) <= 0) return;
+        const type = MILESTONE_TYPES[typeKey];
+        const points = Math.floor(parseFloat(inputValue) * type.perUnit);
+        
+        const milestone = { id: uid(), type: typeKey, amount: parseFloat(inputValue), points, date: new Date().toISOString() };
+        const newProfile = { ...profile, points: profile.points + points, milestones: [milestone, ...(profile.milestones || [])] };
+        setProfile(newProfile);
+        playSound("milestone");
+        setInputValue("");
+        setActiveType(null);
+      };
+
+      return React.createElement("div", { style: { padding: "4px 4px" } },
+        React.createElement("h2", { style: { fontSize: 16, marginBottom: 8, fontWeight: 700, color: "#4A3A6B", fontFamily: "'Fredoka', sans-serif" } }, "I tuoi traguardi"),
+        React.createElement("p", { style: { fontSize: 12, color: "#8F84B0", marginBottom: 12 } }, "Studio, sonno, esami, igiene, allenamento."),
+        React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 16 } },
+          Object.entries(MILESTONE_TYPES).map(([key, type]) => React.createElement("button", { key, onClick: () => setActiveType(activeType === key ? null : key), style: { background: activeType === key ? "rgba(69, 214, 181, 0.8)" : "rgba(251, 249, 255, 0.6)", border: activeType === key ? "2px solid #45D6B5" : "1px solid rgba(239, 230, 255, 0.3)", borderRadius: 10, padding: 10, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, cursor: "pointer", fontSize: 10, color: activeType === key ? "#fff" : "#4A3A6B", fontWeight: activeType === key ? 700 : 500, fontFamily: "'Quicksand', sans-serif" } },
+            React.createElement("div", { style: { fontSize: 18 } }, type.emoji),
+            React.createElement("div", null, type.label)
+          ))
+        ),
+        activeType && React.createElement("div", { style: { background: "rgba(69, 214, 181, 0.15)", borderRadius: 12, padding: 12, marginBottom: 16, border: "1px solid rgba(69, 214, 181, 0.3)" } },
+          React.createElement("label", { style: { fontSize: 11, color: "#45D6B5", marginBottom: 8, display: "block", fontWeight: 700 } }, "Quanto " + MILESTONE_TYPES[activeType].unit + "?"),
+          React.createElement("div", { style: { display: "flex", gap: 8 } },
+            React.createElement("input", { style: { flex: 1, padding: "8px 10px", borderRadius: 8, border: "1px solid rgba(255, 255, 255, 0.4)", background: "rgba(255, 255, 255, 0.5)", fontSize: 12, fontFamily: "'Quicksand', sans-serif" }, type: "number", value: inputValue, onChange: (e) => setInputValue(e.target.value), placeholder: "Es. 3", min: "0" }),
+            React.createElement("button", { style: { background: "linear-gradient(135deg, #45D6B5, #5FE3CA)", color: "#fff", border: "none", borderRadius: 8, padding: "8px 14px", fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'Quicksand', sans-serif" }, onClick: () => handleAdd(activeType) }, "Registra")
+          ),
+          React.createElement("div", { style: { fontSize: 10, color: "#45D6B5", marginTop: 8, fontWeight: 700 } }, "+" + Math.floor(parseFloat(inputValue || 0) * MILESTONE_TYPES[activeType].perUnit) + " pt")
+        ),
+        React.createElement("h2", { style: { fontSize: 16, marginBottom: 8, fontWeight: 700, color: "#4A3A6B", fontFamily: "'Fredoka', sans-serif", marginTop: 20 } }, "Storico"),
+        React.createElement("div", { style: { maxHeight: 300, overflowY: "auto" } },
+          !profile.milestones || profile.milestones.length === 0 ? React.createElement("p", { style: { fontSize: 12, color: "#8F84B0" } }, "Nessun traguardo ancora. Inizia!") :
+          (profile.milestones || []).slice(0, 10).map((m) => React.createElement("div", { key: m.id, style: { background: "rgba(251, 249, 255, 0.6)", borderRadius: 10, padding: 10, marginBottom: 8, display: "flex", gap: 8, alignItems: "center", border: "1px solid rgba(239, 230, 255, 0.3)" } },
+            React.createElement("span", { style: { fontSize: 20 } }, MILESTONE_TYPES[m.type].emoji),
+            React.createElement("div", { style: { flex: 1 } },
+              React.createElement("div", { style: { fontWeight: 600, fontSize: 12, color: "#4A3A6B" } }, MILESTONE_TYPES[m.type].label),
+              React.createElement("div", { style: { fontSize: 10, color: "#8F84B0" } }, m.amount + " " + MILESTONE_TYPES[m.type].unit)
+            ),
+            React.createElement("span", { style: { color: "#45D6B5", fontWeight: 700, fontSize: 12 } }, "+" + m.points)
+          ))
+        )
+      );
+    }
+
+    // ===== CUCINA TAB =====
+    function CucinaSalute({ profile, setProfile }) {
+      const [selected, setSelected] = useState([]);
+
+      const handleSelectIngredient = (id) => {
+        setSelected(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]);
+      };
+
+      const handleCook = () => {
+        if (selected.length === 0) return;
+        const recipe = RECIPES[Math.floor(Math.random() * RECIPES.length)];
+        const newProfile = { ...profile, vitaDays: Math.min(MAX_VITA_DAYS, profile.vitaDays + recipe.vita), points: profile.points + 15, discoveredRecipes: [...(profile.discoveredRecipes || []), recipe.id] };
+        setProfile(newProfile);
+        setSelected([]);
+        playSound("eat");
+        alert("✨ Hai cucinato " + recipe.name + "! +" + recipe.vita + " giorni!");
+      };
+
+      const handleSmoke = () => {
+        const newProfile = { ...profile, vitaDays: Math.max(0, profile.vitaDays - 730), cigarettes: (profile.cigarettes || 0) + 1, lastSmoke: new Date().toISOString() };
+        setProfile(newProfile);
+        playSound("smoke");
+      };
+
+      const handleDrink = () => {
+        const newProfile = { ...profile, vitaDays: Math.max(0, profile.vitaDays - 365), drinks: (profile.drinks || 0) + 1, lastDrink: new Date().toISOString() };
+        setProfile(newProfile);
+        playSound("drink");
+      };
+
+      return React.createElement("div", { style: { padding: "4px 4px" } },
+        React.createElement("h2", { style: { fontSize: 16, marginBottom: 8, fontWeight: 700, color: "#4A3A6B", fontFamily: "'Fredoka', sans-serif" } }, "Cucina 🍳"),
+        React.createElement("p", { style: { fontSize: 12, color: "#8F84B0", marginBottom: 12 } }, "Seleziona ingredienti e cucina una ricetta."),
+        React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 16 } },
+          INGREDIENTS.map((ing) => React.createElement("button", { key: ing.id, onClick: () => handleSelectIngredient(ing.id), style: { fontSize: 28, background: selected.includes(ing.id) ? "rgba(69, 214, 181, 0.8)" : "rgba(244, 251, 255, 0.6)", border: selected.includes(ing.id) ? "2px solid #45D6B5" : "2px solid rgba(191, 226, 248, 0.4)", borderRadius: 10, width: "100%", aspectRatio: "1", cursor: "pointer", padding: 0, display: "flex", alignItems: "center", justifyContent: "center" } }, ing.emoji))
+        ),
+        React.createElement("button", { style: { width: "100%", background: "linear-gradient(135deg, #45D6B5, #5FE3CA)", color: "#fff", border: "none", borderRadius: 12, padding: "10px", fontWeight: 700, cursor: "pointer", marginBottom: 16, fontFamily: "'Quicksand', sans-serif" }, onClick: handleCook, disabled: selected.length === 0 }, "🍲 Cucina!"),
+        React.createElement("h2", { style: { fontSize: 16, marginBottom: 8, fontWeight: 700, color: "#4A3A6B", fontFamily: "'Fredoka', sans-serif" } }, "Ricette scoperte"),
+        React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8, marginBottom: 16 } },
+          RECIPES.map((r) => React.createElement("div", { key: r.id, style: { background: (profile.discoveredRecipes || []).includes(r.id) ? "rgba(255, 197, 61, 0.5)" : "rgba(251, 249, 255, 0.4)", border: (profile.discoveredRecipes || []).includes(r.id) ? "2px solid #FFC53D" : "2px solid rgba(239, 230, 255, 0.2)", borderRadius: 10, padding: 10, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, fontSize: 11, opacity: (profile.discoveredRecipes || []).includes(r.id) ? 1 : 0.5 } },
+            React.createElement("div", { style: { fontSize: 20 } }, r.emoji),
+            React.createElement("div", { style: { fontWeight: 600, color: "#4A3A6B" } }, r.name),
+            React.createElement("div", { style: { fontSize: 9, color: "#8F84B0" } }, "+" + r.vita + " giorni")
+          ))
+        ),
+        React.createElement("h2", { style: { fontSize: 16, marginBottom: 8, fontWeight: 700, color: "#4A3A6B", fontFamily: "'Fredoka', sans-serif", marginTop: 20 } }, "La tua salute ⚕️"),
+        React.createElement("p", { style: { fontSize: 12, color: "#8F84B0", marginBottom: 12 } }, "Sigaretta = -2 anni. Drink = -1 anno."),
+        React.createElement("div", { style: { background: "rgba(255, 111, 176, 0.15)", borderRadius: 12, padding: 12, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 } },
+          React.createElement("div", { style: { textAlign: "center" } },
+            React.createElement("div", { style: { fontSize: 10, color: "#8F84B0", marginBottom: 4 } }, "Sigarette"),
+            React.createElement("div", { style: { fontSize: 24, fontWeight: 700, color: "#FF6FB0" } }, profile.cigarettes || 0),
+            React.createElement("button", { style: { background: "linear-gradient(135deg, #FF6FB0, #FF8FBF)", color: "#fff", border: "none", borderRadius: 8, padding: "6px", fontWeight: 700, cursor: "pointer", marginTop: 8, fontSize: 11, width: "100%", fontFamily: "'Quicksand', sans-serif" }, onClick: handleSmoke }, "+1 (−2 anni)")
+          ),
+          React.createElement("div", { style: { textAlign: "center" } },
+            React.createElement("div", { style: { fontSize: 10, color: "#8F84B0", marginBottom: 4 } }, "Drink"),
+            React.createElement("div", { style: { fontSize: 24, fontWeight: 700, color: "#FF6FB0" } }, profile.drinks || 0),
+            React.createElement("button", { style: { background: "linear-gradient(135deg, #FF6FB0, #FF8FBF)", color: "#fff", border: "none", borderRadius: 8, padding: "6px", fontWeight: 700, cursor: "pointer", marginTop: 8, fontSize: 11, width: "100%", fontFamily: "'Quicksand', sans-serif" }, onClick: handleDrink }, "+1 (−1 anno)")
+          )
+        )
+      );
+    }
+
+    // ===== STATISTICHE TAB =====
+    function Statistiche({ profile }) {
+      const cleanSmokeDays = profile.lastSmoke ? Math.floor((new Date() - new Date(profile.lastSmoke)) / (1000 * 60 * 60 * 24)) : -1;
+      const cleanDrinkDays = profile.lastDrink ? Math.floor((new Date() - new Date(profile.lastDrink)) / (1000 * 60 * 60 * 24)) : -1;
+
+      return React.createElement("div", { style: { padding: "4px 4px" } },
+        React.createElement("h2", { style: { fontSize: 16, marginBottom: 8, fontWeight: 700, color: "#4A3A6B", fontFamily: "'Fredoka', sans-serif" } }, "Le tue statistiche 📊"),
+        React.createElement("div", { style: { background: "rgba(69, 214, 181, 0.15)", borderRadius: 12, padding: 14, marginBottom: 12, border: "1px solid rgba(69, 214, 181, 0.3)" } },
+          React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#4A3A6B", marginBottom: 8 } }, "Giorni senza fumare"),
+          React.createElement("div", { style: { fontSize: 28, fontWeight: 700, color: "#45D6B5" } }, cleanSmokeDays >= 0 ? cleanSmokeDays : "—"),
+          cleanSmokeDays >= 30 && React.createElement("div", { style: { fontSize: 10, color: "#45D6B5", marginTop: 4, fontWeight: 700 } }, "🎉 +1 anno rigenerato!")
+        ),
+        React.createElement("div", { style: { background: "rgba(69, 214, 181, 0.15)", borderRadius: 12, padding: 14, marginBottom: 12, border: "1px solid rgba(69, 214, 181, 0.3)" } },
+          React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#4A3A6B", marginBottom: 8 } }, "Giorni senza bere"),
+          React.createElement("div", { style: { fontSize: 28, fontWeight: 700, color: "#45D6B5" } }, cleanDrinkDays >= 0 ? cleanDrinkDays : "—"),
+          cleanDrinkDays >= 7 && React.createElement("div", { style: { fontSize: 10, color: "#45D6B5", marginTop: 4, fontWeight: 700 } }, "🎉 +1 anno rigenerato!")
+        ),
+        React.createElement("div", { style: { background: "rgba(255, 243, 196, 0.6)", borderRadius: 12, padding: 14, marginBottom: 12, border: "1px solid rgba(255, 230, 196, 0.3)" } },
+          React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#4A3A6B", marginBottom: 8 } }, "Ricette scoperte"),
+          React.createElement("div", { style: { fontSize: 24, fontWeight: 700, color: "#FFE070" } }, (profile.discoveredRecipes || []).length + "/" + RECIPES.length)
+        ),
+        React.createElement("div", { style: { background: "rgba(251, 249, 255, 0.6)", borderRadius: 12, padding: 14, border: "1px solid rgba(239, 230, 255, 0.3)" } },
+          React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#4A3A6B", marginBottom: 8 } }, "Traguardi totali"),
+          React.createElement("div", { style: { fontSize: 24, fontWeight: 700, color: "#B3A5D6" } }, (profile.milestones || []).length)
+        )
+      );
+    }
+
+    // ===== MAIN APP =====
+    const PROFILE_DEFAULTS = { points: 0, vitaDays: MAX_VITA_DAYS, cigarettes: 0, drinks: 0, milestones: [], discoveredRecipes: [] };
+
+    function CucciolataApp() {
+      const [profile, setProfile] = useState(null);
+      const [loaded, setLoaded] = useState(false);
+      const [tab, setTab] = useState("home");
+
+      useEffect(() => {
+        try {
+          const saved = localStorage.getItem("pet-profile");
+          if (saved) setProfile(JSON.parse(saved));
+        } catch (e) {}
+        setLoaded(true);
+
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.register('sw.js').catch(() => {});
+        }
+      }, []);
+
+      const saveProfile = useCallback((p) => {
+        setProfile(p);
+        try { localStorage.setItem("pet-profile", JSON.stringify(p)); } catch (e) {}
+      }, []);
+
+      if (!loaded) return React.createElement("div");
+      if (!profile) return React.createElement(Onboarding, { onDone: (data) => saveProfile({ ...data, ...PROFILE_DEFAULTS }) });
+
+      const stage = stageFor(profile.points);
+      const isDead = profile.vitaDays <= 0;
+
+      return React.createElement("div", { style: { fontFamily: "'Quicksand', sans-serif", background: "linear-gradient(135deg, #FFE8F5, #E8F5FF)", minHeight: "100vh", maxWidth: 420, margin: "0 auto", display: "flex", flexDirection: "column", color: "#4A3A6B" } },
+        React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 18px 10px", background: "rgba(255, 255, 255, 0.7)", backdropFilter: "blur(20px)", borderBottom: "1px solid rgba(255, 255, 255, 0.5)" } },
+          React.createElement("div", null,
+            React.createElement("div", { style: { fontFamily: "'Fredoka', sans-serif", fontSize: 20, fontWeight: 700, color: "#4A3A6B" } }, profile.petName),
+            React.createElement("div", { style: { fontSize: 11, color: "#8F84B0" } }, stage.label + " • " + profile.code)
+          )
+        ),
+        React.createElement("div", { style: { flex: 1, background: "rgba(255, 255, 255, 0.6)", backdropFilter: "blur(10px)", borderRadius: "24px 24px 0 0", padding: "20px 18px", overflowY: "auto", borderTop: "1px solid rgba(255, 255, 255, 0.8)" } },
+          isDead ? React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", textAlign: "center" } },
+            React.createElement("div", { style: { fontSize: 64, marginBottom: 12 } }, "😔"),
+            React.createElement("h2", { style: { fontSize: 20, fontWeight: 700, color: "#4A3A6B", marginBottom: 8, fontFamily: "'Fredoka', sans-serif" } }, profile.petName + " se ne è andato..."),
+            React.createElement("p", { style: { fontSize: 12, color: "#8F84B0", marginBottom: 24 } }, "Aveva " + formatDays(profile.vitaDays) + " quando se n'è andato."),
+            React.createElement("button", { style: { background: "linear-gradient(135deg, #FFC53D, #FFD966)", color: "#4A3A6B", border: "none", borderRadius: 18, padding: "11px 28px", fontWeight: 700, cursor: "pointer", fontFamily: "'Quicksand', sans-serif" }, onClick: () => saveProfile({ ...PROFILE_DEFAULTS, petName: profile.petName, myName: profile.myName, code: profile.code }) }, "Ricominciare")
+          ) : tab === "home" ? React.createElement(Home, { profile, stage }) : tab === "traguardi" ? React.createElement(Traguardi, { profile, setProfile: saveProfile }) : tab === "cucina" ? React.createElement(CucinaSalute, { profile, setProfile: saveProfile }) : React.createElement(Statistiche, { profile })
+        ),
+        !isDead && React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", background: "rgba(255, 255, 255, 0.7)", backdropFilter: "blur(20px)", borderTop: "1px solid rgba(255, 255, 255, 0.5)", padding: "6px 10px 10px", gap: 4 } },
+          React.createElement("button", { onClick: () => setTab("home"), style: { background: tab === "home" ? "#FFE070" : "transparent", color: tab === "home" ? "#4A3A6B" : "#B3A5D6", border: "none", borderRadius: 10, padding: "8px 0", cursor: "pointer", fontWeight: tab === "home" ? 700 : 500, fontFamily: "'Quicksand', sans-serif", fontSize: 11 } }, "Casa"),
+          React.createElement("button", { onClick: () => setTab("traguardi"), style: { background: tab === "traguardi" ? "#FFE070" : "transparent", color: tab === "traguardi" ? "#4A3A6B" : "#B3A5D6", border: "none", borderRadius: 10, padding: "8px 0", cursor: "pointer", fontWeight: tab === "traguardi" ? 700 : 500, fontFamily: "'Quicksand', sans-serif", fontSize: 11 } }, "Traguardi"),
+          React.createElement("button", { onClick: () => setTab("cucina"), style: { background: tab === "cucina" ? "#FFE070" : "transparent", color: tab === "cucina" ? "#4A3A6B" : "#B3A5D6", border: "none", borderRadius: 10, padding: "8px 0", cursor: "pointer", fontWeight: tab === "cucina" ? 700 : 500, fontFamily: "'Quicksand', sans-serif", fontSize: 11 } }, "Cucina"),
+          React.createElement("button", { onClick: () => setTab("stats"), style: { background: tab === "stats" ? "#FFE070" : "transparent", color: tab === "stats" ? "#4A3A6B" : "#B3A5D6", border: "none", borderRadius: 10, padding: "8px 0", cursor: "pointer", fontWeight: tab === "stats" ? 700 : 500, fontFamily: "'Quicksand', sans-serif", fontSize: 11 } }, "Stats")
+        )
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(CucciolataApp));
+  </script>
+</body>
+</html>
